@@ -34,13 +34,19 @@ CODE STYLE:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 from imblearn.over_sampling import SMOTE
 from sklearn.utils.class_weight import compute_class_weight
+
+from features.feature_engineering import build_feature_matrix
+
+LOGGER = logging.getLogger(__name__)
 
 Signal = str
 
@@ -132,4 +138,35 @@ def prepare_datasets(
         feature_names=feature_names,
         class_distribution=class_distribution,
         class_weights=class_weights,
+    )
+
+
+def prepare_ml_dataset(
+    symbols: List[str],
+    lookback_days: int = 730,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    use_smote: bool = False,
+    use_class_weights: bool = False,
+    random_state: int = 42,
+) -> DatasetSplits:
+    """Build a combined dataset for the supplied symbols."""
+    frames: List[pd.DataFrame] = []
+    end = end_date or datetime.utcnow()
+    start = start_date or (end - timedelta(days=lookback_days))
+    for symbol in symbols:
+        try:
+            frame = build_feature_matrix(symbol, start_date=start, end_date=end)
+            frame["symbol"] = symbol
+            frames.append(frame)
+        except ValueError as exc:
+            LOGGER.warning("Skipping %s during dataset preparation: %s", symbol, exc)
+    if not frames:
+        raise ValueError("No data available for requested symbols.")
+    combined = pd.concat(frames).reset_index(drop=True)
+    return prepare_datasets(
+        combined,
+        use_smote=use_smote,
+        use_class_weights=use_class_weights,
+        random_state=random_state,
     )

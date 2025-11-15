@@ -38,7 +38,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 import pandas as pd
 
@@ -100,19 +100,29 @@ def run_etl_pipeline(
     start_date: str | datetime,
     end_date: str | datetime | None = None,
     interval: str = "1d",
-) -> Dict[str, Dict[str, int]]:
+) -> Dict[str, Dict[str, Any]]:
     """Execute extract -> transform -> load pipeline."""
-    pipeline_log: Dict[str, Dict[str, int]] = {}
+    pipeline_log: Dict[str, Dict[str, Any]] = {}
     start_time = time.time()
     extracts = _extract_parallel(symbols, start_date, end_date, interval)
     for symbol, raw_df in extracts.items():
-        clean_df, report = clean_ohlcv_data(raw_df)
-        clean_df.insert(0, "symbol", symbol)
-        loader_stats = bulk_upsert_stock_prices(clean_df)
-        pipeline_log[symbol] = {
-            **report,
-            **loader_stats,
-        }
+        try:
+            clean_df, report = clean_ohlcv_data(raw_df)
+            clean_df.insert(0, "symbol", symbol)
+            loader_stats = bulk_upsert_stock_prices(clean_df)
+            pipeline_log[symbol] = {
+                **report,
+                **loader_stats,
+                "rows_inserted": loader_stats.get("inserted", 0),
+                "rows_updated": loader_stats.get("updated", 0),
+                "success": loader_stats.get("failed", 0) == 0,
+            }
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Pipeline failed for %s: %s", symbol, exc)
+            pipeline_log[symbol] = {
+                "success": False,
+                "error": str(exc),
+            }
     elapsed = time.time() - start_time
     LOGGER.info("ETL pipeline completed in %.2fs", elapsed)
     pipeline_log["_meta"] = {"elapsed_seconds": round(elapsed, 2)}

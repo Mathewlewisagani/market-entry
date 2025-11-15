@@ -35,7 +35,7 @@ CODE STYLE:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 import pandas as pd
@@ -161,3 +161,17 @@ def build_feature_matrix(
         symbol,
     )
     return engineered
+
+
+def generate_features_for_symbol(
+    symbol: str,
+    lookback_days: int = 730,
+) -> pd.DataFrame:
+    """Helper for scripts to build features over rolling window."""
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=lookback_days)
+    return build_feature_matrix(
+        symbol,
+        start_date=start_date,
+        end_date=end_date,
+    )

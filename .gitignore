@@ -126,6 +126,7 @@ cython_debug/
 
 # Data, logs, models
 logs/
+!logs/.gitkeep
 data/
 
 # Jupyter Notebook checkpoints
@@ -133,4 +134,3 @@ data/
 
 # VS Code
 .vscode/
-
