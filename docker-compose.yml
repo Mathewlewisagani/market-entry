@@ -5,9 +5,9 @@ services:
     image: postgres:14
     restart: always
     environment:
-      POSTGRES_DB: market_timing
-      POSTGRES_USER: market_user
-      POSTGRES_PASSWORD: market_password
+      POSTGRES_DB: market_timing_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: yourpassword
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     ports:
@@ -20,7 +20,7 @@ services:
     depends_on:
       - postgres
     environment:
-      DATABASE_URL: postgresql://market_user:market_password@postgres:5432/market_timing
+      DATABASE_URL: postgresql://postgres:yourpassword@postgres:5432/market_timing_db
       ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
       FLASK_ENV: production
       SECRET_KEY: ${SECRET_KEY:-changeme}
