@@ -15,4 +15,4 @@ joblib
 xgboost
 requests
 python-dateutil
-imbalanced-learn
+imbala
