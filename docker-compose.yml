@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:14
+    restart: always
+    environment:
+      POSTGRES_DB: market_timing
+      POSTGRES_USER: market_user
+      POSTGRES_PASSWORD: market_password
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - market_net
+
+  api:
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://market_user:market_password@postgres:5432/market_timing
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+      FLASK_ENV: production
+      SECRET_KEY: ${SECRET_KEY:-changeme}
+    ports:
+      - "5000:5000"
+    restart: always
+    networks:
+      - market_net
+
+networks:
+  market_net:
+    driver: bridge
