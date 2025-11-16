@@ -34,12 +34,19 @@ CODE STYLE:
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import SQLAlchemyError
+
+# Ensure project root is in PYTHONPATH
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 
 from config.settings import get_config
 
