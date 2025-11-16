@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS technical_indicators (
     sma_200 NUMERIC,
     bollinger_upper NUMERIC,
     bollinger_lower NUMERIC,
+    UNIQUE (symbol, timestamp),
     FOREIGN KEY (symbol, timestamp)
         REFERENCES stock_prices (symbol, timestamp)
         ON DELETE CASCADE

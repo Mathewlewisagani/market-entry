@@ -9,6 +9,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from sqlalchemy import text
+
 from config.database import get_session
 from features.feature_engineering import generate_features_for_symbol
 
@@ -19,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 def generate_all_features(lookback_days: int = 730) -> None:
     """Generate features for every symbol present in stock_prices."""
     with get_session() as session:
-        results = session.execute("SELECT DISTINCT symbol FROM stock_prices")
+        results = session.execute(text("SELECT DISTINCT symbol FROM stock_prices"))
         symbols = [row[0] for row in results]
     LOGGER.info("Generating features for %s symbols.", len(symbols))
     for symbol in symbols:

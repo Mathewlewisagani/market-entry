@@ -117,15 +117,17 @@ class PredictionService:
         feature_names: List[str],
         feature_values: Dict[str, float],
     ) -> None:
+        # Use bindparam with JSONB type for proper casting
         insert_sql = text(
             """
             INSERT INTO ml_predictions
             (symbol, timestamp, prediction_date, signal, confidence,
              model_version, features)
             VALUES (:symbol, :timestamp, :prediction_date, :signal, :confidence,
-                    :model_version, :features::jsonb)
+                    :model_version, CAST(:features AS JSONB))
             """
         )
+        features_json = json.dumps({"feature_names": feature_names, "values": feature_values})
         db_payload = {
             "symbol": payload["symbol"],
             "timestamp": payload["timestamp"],
@@ -133,7 +135,7 @@ class PredictionService:
             "signal": payload["signal"],
             "confidence": payload["confidence"],
             "model_version": payload["model_version"],
-            "features": json.dumps({"feature_names": feature_names, "values": feature_values}),
+            "features": features_json,
         }
         with get_session() as session:
             session.execute(insert_sql, db_payload)

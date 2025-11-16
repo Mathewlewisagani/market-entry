@@ -47,6 +47,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier
 
 from evaluation.metrics import classification_report
@@ -198,6 +199,7 @@ class XGBoostModel(BaseModel):
             eval_metric="mlogloss",
             random_state=42,
         )
+        self.label_encoder = LabelEncoder()
 
     def train(
         self,
@@ -207,22 +209,54 @@ class XGBoostModel(BaseModel):
         y_val: Optional[pd.Series] = None,
         early_stopping_rounds: int = 10,
     ) -> None:
+        # XGBoost requires numeric labels, so encode string labels
+        y_train_encoded = self.label_encoder.fit_transform(y_train)
         eval_set = None
         if X_val is not None and y_val is not None:
-            eval_set = [(X_val, y_val)]
+            y_val_encoded = self.label_encoder.transform(y_val)
+            eval_set = [(X_val, y_val_encoded)]
+        # Note: XGBoost 3.x doesn't support early_stopping_rounds in fit()
+        # The model will train for the full n_estimators specified in __init__
         self.model.fit(
             X_train,
-            y_train,
+            y_train_encoded,
             eval_set=eval_set,
             verbose=False,
-            early_stopping_rounds=early_stopping_rounds if eval_set else None,
         )
         self.trained_at = datetime.utcnow()
         if X_val is not None and y_val is not None:
             self.evaluate(X_val, y_val)
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-        return self.model.predict(X)
+        predictions_encoded = self.model.predict(X)
+        # Convert back to original string labels
+        return self.label_encoder.inverse_transform(predictions_encoded)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         return self.model.predict_proba(X)
+
+    def save(self, filepath: Optional[Path] = None) -> Path:
+        """Persist trained model artifact with label encoder."""
+        if self.model is None:
+            raise ValueError("Train the model before saving.")
+        path = filepath or MODEL_DIR / f"{self.model_name}_{self.version}.joblib"
+        joblib.dump(
+            {
+                "model": self.model,
+                "label_encoder": self.label_encoder,
+                "trained_at": self.trained_at,
+                "version": self.version,
+            },
+            path,
+        )
+        LOGGER.info("Saved model artifact to %s", path)
+        return path
+
+    def load(self, filepath: Path) -> None:
+        """Load serialized artifact with label encoder."""
+        payload = joblib.load(filepath)
+        self.model = payload["model"]
+        self.label_encoder = payload.get("label_encoder", LabelEncoder())
+        self.trained_at = payload.get("trained_at")
+        self.version = payload.get("version", self.version)
+        LOGGER.info("Loaded model %s from %s", self.model_name, filepath)

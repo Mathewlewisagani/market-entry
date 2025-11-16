@@ -93,11 +93,22 @@ def bulk_upsert_stock_prices(
         while retries < max_retries:
             try:
                 with get_session() as session:
-                    result = session.execute(UPSERT_SQL, params)
-                    flags = result.scalars().all()
-                inserted_batch = sum(1 for flag in flags if flag)
-                inserted += inserted_batch
-                updated += len(flags) - inserted_batch
+                    # Execute row by row to get RETURNING results
+                    batch_inserted = 0
+                    batch_updated = 0
+                    for param in params:
+                        result = session.execute(UPSERT_SQL, param)
+                        # Fetch the result before the session closes
+                        row = result.fetchone()
+                        if row:
+                            # xmax = 0 means inserted (new row), xmax != 0 means updated
+                            if row[0]:  # inserted_flag is True
+                                batch_inserted += 1
+                            else:
+                                batch_updated += 1
+                    # Session commits automatically via context manager
+                inserted += batch_inserted
+                updated += batch_updated
                 break
             except SQLAlchemyError as exc:
                 retries += 1
